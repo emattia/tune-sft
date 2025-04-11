@@ -9,10 +9,10 @@
 #   tune run --nnodes 1 --nproc_per_node 8 full_dpo_distributed.py --config dpo_config.yaml
 
 # TODO: Change for Llama 3.3 70B
-# model_size: "70B"
-# model_version: "3.3"
-model_size: "3B"
-model_version: "3.2"
+model_size: "70B"
+model_version: "3.3"
+# model_size: "3B"
+# model_version: "3.2"
 base_model_name: Llama-${model_version}-${model_size}-Instruct
 
 base_dir: /tmp/${base_model_name}
@@ -20,8 +20,8 @@ output_dir: /tmp/torchtune/${base_model_name}/full_dpo # /tmp may be deleted by 
 
 model:
   # TODO: Change for Llama 3.3 70B
-  _component_: torchtune.models.llama3_2.llama3_2_3b
-  # _component_: torchtune.models.llama3_3.llama3_3_70b
+  # _component_: torchtune.models.llama3_2.llama3_2_3b
+  _component_: torchtune.models.llama3_3.llama3_3_70b
 
 tokenizer:
   _component_: torchtune.models.llama3.llama3_tokenizer
@@ -34,8 +34,8 @@ checkpointer:
   checkpoint_files:
     filename_format: model-{}-of-{}.safetensors
     # TODO: Change for Llama 3.3 70B
-    # max_filename: "00030"
-    max_filename: "00002"
+    max_filename: "00030"
+    # max_filename: "00002"
   recipe_checkpoint: null
   output_dir: ${output_dir}
   model_type: LLAMA3
@@ -48,8 +48,8 @@ ref_checkpointer:
   checkpoint_files:
     filename_format: model-{}-of-{}.safetensors
     # TODO: Change for Llama 3.3 70B
-    # max_filename: "00030"
-    max_filename: "00002"
+    max_filename: "00030"
+    # max_filename: "00002"
   recipe_checkpoint: null
   output_dir: ${output_dir}
   model_type: LLAMA3

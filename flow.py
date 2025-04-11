@@ -18,7 +18,7 @@ from metaflow import (
 # NOTE: We will shortly release this as part of the default Outerbounds Metaflow distribution.
 from launcher import TorchTune
 
-N_GPU = 4
+N_GPU = 8
 
 if N_GPU==8: # tested on H100 80GB
     coreweave_k8s_config = dict(
@@ -206,11 +206,11 @@ class DPOPostTrainDemo(FlowSpec):
     # Checkpoints store intermediate state.
     @checkpoint(
         # load_policy="eager", 
-        temp_dir_root="metaflow-chkpt/loaded_checkpoints"
+        temp_dir_root="metaflow-chkpt-train/loaded_checkpoints"
     )
     @model(
-        load=[("base_model", "metaflow-chkpt/model")], 
-        temp_dir_root="metaflow-chkpt/loaded_models"
+        load=[("base_model", "metaflow-chkpt-train/model")], 
+        temp_dir_root="metaflow-chkpt-train/loaded_models"
     )
     @training_environment
     @kubernetes(**coreweave_k8s_config, image="docker.io/eddieob/torchtune-train")
@@ -257,8 +257,8 @@ class DPOPostTrainDemo(FlowSpec):
 
     @card
     @model(
-        load=[("dpo_model_ref", "metaflow-chkpt/dpo_model")], 
-        temp_dir_root="metaflow-chkpt/loaded_models"
+        load=[("dpo_model_ref", "metaflow-chkpt-infer/dpo_model")], 
+        temp_dir_root="metaflow-chkpt-infer/loaded_models"
     )
     @inference_environment
     @kubernetes(**coreweave_k8s_config, image="docker.io/eddieob/torchtune-vllm-inference")
@@ -267,7 +267,7 @@ class DPOPostTrainDemo(FlowSpec):
         from dpo_eval import run_eval
 
         self.results = run_eval(
-            checkpoint_path="metaflow-chkpt/dpo_model",
+            checkpoint_path=current.model.loaded["dpo_model_ref"],
             # data_split=self.test_split,
             output_dir="results",
             max_batches=10,
