@@ -18,35 +18,16 @@ from metaflow import (
 # NOTE: We will shortly release this as part of the default Outerbounds Metaflow distribution.
 from launcher import TorchTune
 
-N_GPU = 8
-
-if N_GPU==8: # tested on H100 80GB
-    coreweave_k8s_config = dict(
-        compute_pool="coreweave-h100",
-        cpu=100,
-        memory=900 * 1000,
-        gpu=N_GPU,
-        shared_memory=200 * 1000,
-        image="registry.hub.docker.com/valayob/nebius-nccl-pytorch:0.0.2",
-        # This thing needs a security context of `V1Container` with privilage=true to use Infiniband.
-        disk=1000 * 1000,
-        use_tmpfs=True,
-    )
-
-elif N_GPU==4: # tested on a10g, AWS g5.12xlarge
-    coreweave_k8s_config = dict(
-        compute_pool="coreweave-h100",
-        cpu=42,
-        memory=164 * 1000,
-        gpu=N_GPU,
-        shared_memory=128 * 1000,
-        # This thing needs a security context of `V1Container` with privilage=true to use Infiniband.
-        disk=400 * 1000,
-        use_tmpfs=True,
-    )
-
-else:
-    raise ValueError('N_GPU must equal 8 or 4.')
+k8s_config = dict(
+    compute_pool="m5-2xl-ville",
+    cpu=42,
+    memory=164 * 1000,
+    gpu=N_GPU,
+    shared_memory=128 * 1000,
+    # This thing needs a security context of `V1Container` with privilage=true to use Infiniband.
+    disk=400 * 1000,
+    use_tmpfs=True,
+)
 
 
 def model_cache_environment(func):
@@ -90,13 +71,9 @@ def training_environment(func):
         # ),
         environment(
             vars={
-                "WANDB_PROJECT": "dpo",
+                "WANDB_PROJECT": "sft-demo",
                 "WANDB_LOG_MODEL": "false",
-                # "NCCL_IB_HCA": "mlx5",
-                # "UCX_NET_DEVICES": "mlx5_0:1,mlx5_1:1,mlx5_2:1,mlx5_3:1,mlx5_4:1,mlx5_5:1,mlx5_6:1,mlx5_7:1",
-                # "SHARP_COLL_ENABLE_PCI_RELAXED_ORDERING": "1",
-                # "NCCL_COLLNET_ENABLE": "0",
-                "OMP_NUM_THREADS": "8",
+                "OMP_NUM_THREADS": "4",
                 "TORCH_DIST_INIT_BARRIER": "1"
             }
         ),
@@ -125,13 +102,9 @@ def inference_environment(func):
         # ),
         environment(
             vars={
-                "WANDB_PROJECT": "dpo",
+                "WANDB_PROJECT": "sft-demo",
                 "WANDB_LOG_MODEL": "false",
-                # "NCCL_IB_HCA": "mlx5",
-                # "UCX_NET_DEVICES": "mlx5_0:1,mlx5_1:1,mlx5_2:1,mlx5_3:1,mlx5_4:1,mlx5_5:1,mlx5_6:1,mlx5_7:1",
-                # "SHARP_COLL_ENABLE_PCI_RELAXED_ORDERING": "1",
-                # "NCCL_COLLNET_ENABLE": "0",
-                "OMP_NUM_THREADS": "8",
+                "OMP_NUM_THREADS": "4",
                 "TORCH_DIST_INIT_BARRIER": "1"
             }
         ),
@@ -145,7 +118,7 @@ class DPOPostTrainDemo(FlowSpec):
 
     training_config = IncludeFile(
         "config",
-        default="dpo_config.yaml", # TODO: change to desired config.yaml file.
+        default="sft_config.yaml", # TODO: change to desired config.yaml file.
         is_text=True,
     )
     prev_model_key = Parameter(
@@ -155,27 +128,16 @@ class DPOPostTrainDemo(FlowSpec):
     )
     recipe = Parameter(
         "recipe",
-        default="dpo_recipe.py", # TODO: change to desired torchtune recipe.
+        default="sft_recipe.py", # TODO: change to desired torchtune recipe.
         help="The name of the recipe or .py file that defines the recipe. Metaflow will automatically package .py files in the flow directory."
     )
-
-    # train_split = Parameter(
-    #     "train-split",
-    #     default="train[:90%]",
-    #     help="See https://huggingface.co/docs/datasets/en/package_reference/loading_methods#datasets.load_dataset.path"
-    # )
-    # test_split = Parameter(
-    #     "test",
-    #     default="train[:90%]",
-    #     help="See https://huggingface.co/docs/datasets/en/package_reference/loading_methods#datasets.load_dataset.path"
-    # )
     
     @step
     def start(self):
         self.next(self.pull_model)
 
     @model_cache_environment
-    @kubernetes(**coreweave_k8s_config, image='docker.io/eddieob/hf-model-cache')
+    @kubernetes(**k8s_config, image='docker.io/eddieob/hf-model-cache')
     @step
     def pull_model(self):
         '''
@@ -213,7 +175,7 @@ class DPOPostTrainDemo(FlowSpec):
         temp_dir_root="metaflow-chkpt-train/loaded_models"
     )
     @training_environment
-    @kubernetes(**coreweave_k8s_config, image="docker.io/eddieob/torchtune-train")
+    @kubernetes(**k8s_config, image="docker.io/eddieob/torchtune-train")
     @step
     def train(self):
         import yaml
@@ -246,40 +208,40 @@ class DPOPostTrainDemo(FlowSpec):
             ],
         )
 
-        self.dpo_model_ref = current.model.save(
+        self.sft_model_ref = current.model.save(
             os.path.join(
                 config["output_dir"],
                 "epoch_" + str(config["epochs"] - 1),
             ),
             storage_format="files",
         )
-        self.next(self.eval)
+    #     self.next(self.eval)
 
-    @card
-    @model(
-        load=[("dpo_model_ref", "metaflow-chkpt-infer/dpo_model")], 
-        temp_dir_root="metaflow-chkpt-infer/loaded_models"
-    )
-    @inference_environment
-    @kubernetes(**coreweave_k8s_config, image="docker.io/eddieob/torchtune-vllm-inference")
-    @step
-    def eval(self):
-        from dpo_eval import run_eval
+    # @card
+    # @model(
+    #     load=[("sft_model_ref", "metaflow-chkpt-infer/dpo_model")], 
+    #     temp_dir_root="metaflow-chkpt-infer/loaded_models"
+    # )
+    # @inference_environment
+    # @kubernetes(**coreweave_k8s_config, image="docker.io/eddieob/torchtune-vllm-inference")
+    # @step
+    # def eval(self):
+    #     from dpo_eval import run_eval
 
-        self.results = run_eval(
-            checkpoint_path=current.model.loaded["dpo_model_ref"],
-            # data_split=self.test_split,
-            output_dir="results",
-            max_batches=10,
-            world_size=N_GPU,
-            seed=42
-        )
+    #     self.results = run_eval(
+    #         checkpoint_path=current.model.loaded["sft_model_ref"],
+    #         # data_split=self.test_split,
+    #         output_dir="results",
+    #         max_batches=10,
+    #         world_size=N_GPU,
+    #         seed=42
+    #     )
         self.next(self.end)
 
     @step
     def end(self):
         """End of flow"""
-        print("Final Model Key:", self.dpo_model_ref)
+        print("Final Model Key:", self.sft_model_ref)
 
 
 if __name__ == "__main__":
