@@ -18,16 +18,16 @@ from metaflow import (
 # NOTE: We will shortly release this as part of the default Outerbounds Metaflow distribution.
 from launcher import TorchTune
 
-k8s_config = dict(
-    compute_pool="m5-2xl-ville",
-    cpu=42,
-    memory=164 * 1000,
-    gpu=N_GPU,
-    shared_memory=128 * 1000,
-    # This thing needs a security context of `V1Container` with privilage=true to use Infiniband.
-    disk=400 * 1000,
-    use_tmpfs=True,
-)
+# k8s_config = dict(
+#     compute_pool="m5-2xl-ville",
+#     cpu=42,
+#     memory=164 * 1000,
+#     gpu=N_GPU,
+#     shared_memory=128 * 1000,
+#     # This thing needs a security context of `V1Container` with privilage=true to use Infiniband.
+#     disk=400 * 1000,
+#     use_tmpfs=True,
+# )
 
 
 def model_cache_environment(func):
@@ -114,11 +114,11 @@ def inference_environment(func):
     return func
 
 
-class DPOPostTrainDemo(FlowSpec):
+class SFTPostTrainDemo(FlowSpec):
 
     training_config = IncludeFile(
         "config",
-        default="sft_config.yaml", # TODO: change to desired config.yaml file.
+        default="70B_sft_config.yaml", # TODO: change to desired config.yaml file.
         is_text=True,
     )
     prev_model_key = Parameter(
@@ -128,7 +128,7 @@ class DPOPostTrainDemo(FlowSpec):
     )
     recipe = Parameter(
         "recipe",
-        default="sft_recipe.py", # TODO: change to desired torchtune recipe.
+        default="full_sft_distributed.py", # TODO: change to desired torchtune recipe.
         help="The name of the recipe or .py file that defines the recipe. Metaflow will automatically package .py files in the flow directory."
     )
     
@@ -137,7 +137,7 @@ class DPOPostTrainDemo(FlowSpec):
         self.next(self.pull_model)
 
     @model_cache_environment
-    @kubernetes(**k8s_config, image='docker.io/eddieob/hf-model-cache')
+    # @kubernetes(**k8s_config, image='docker.io/eddieob/hf-model-cache')
     @step
     def pull_model(self):
         '''
@@ -175,7 +175,7 @@ class DPOPostTrainDemo(FlowSpec):
         temp_dir_root="metaflow-chkpt-train/loaded_models"
     )
     @training_environment
-    @kubernetes(**k8s_config, image="docker.io/eddieob/torchtune-train")
+    # @kubernetes(**k8s_config, image="docker.io/eddieob/torchtune-train")
     @step
     def train(self):
         import yaml
@@ -204,7 +204,7 @@ class DPOPostTrainDemo(FlowSpec):
             config_dict=config,
             additional_cli_options=[
                 "--nproc-per-node", 
-                str(N_GPU)
+                "8"
             ],
         )
 
@@ -215,27 +215,6 @@ class DPOPostTrainDemo(FlowSpec):
             ),
             storage_format="files",
         )
-    #     self.next(self.eval)
-
-    # @card
-    # @model(
-    #     load=[("sft_model_ref", "metaflow-chkpt-infer/dpo_model")], 
-    #     temp_dir_root="metaflow-chkpt-infer/loaded_models"
-    # )
-    # @inference_environment
-    # @kubernetes(**coreweave_k8s_config, image="docker.io/eddieob/torchtune-vllm-inference")
-    # @step
-    # def eval(self):
-    #     from dpo_eval import run_eval
-
-    #     self.results = run_eval(
-    #         checkpoint_path=current.model.loaded["sft_model_ref"],
-    #         # data_split=self.test_split,
-    #         output_dir="results",
-    #         max_batches=10,
-    #         world_size=N_GPU,
-    #         seed=42
-    #     )
         self.next(self.end)
 
     @step
@@ -245,4 +224,4 @@ class DPOPostTrainDemo(FlowSpec):
 
 
 if __name__ == "__main__":
-    DPOPostTrainDemo()
+    SFTPostTrainDemo()
