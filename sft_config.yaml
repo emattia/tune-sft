@@ -16,10 +16,10 @@
 # This config is only tested on an 8xA100 machine.
 #
 
-# model_size: "70B"
-# model_version: "3.3"
-model_size: "3B"
-model_version: "3.2"
+model_size: "70B"
+model_version: "3.3"
+# model_size: "3B"
+# model_version: "3.2"
 base_model_name: Llama-${model_version}-${model_size}-Instruct
 
 # base_dir: /tmp/${base_model_name}
@@ -29,9 +29,9 @@ base_dir: metaflow-chkpt-train/model
 output_dir: metaflow-chkpt-train/out/${base_model_name}
 
 # Parallelism
-# tensor_parallel_dim: 1
-# tensor_parallel_plan:
-#   _component_: torchtune.models.llama3.base_llama_tp_plan
+tensor_parallel_dim: 1
+tensor_parallel_plan:
+  _component_: torchtune.models.llama3.base_llama_tp_plan
 
 # Tokenizer
 tokenizer:
@@ -57,8 +57,8 @@ huggingface:
 
 # Model Arguments
 model:
-  _component_: torchtune.models.llama3_2.llama3_2_3b
-  # _component_: torchtune.models.llama3_3.llama3_3_70b
+  # _component_: torchtune.models.llama3_2.llama3_2_3b
+  _component_: torchtune.models.llama3_3.llama3_3_70b
 
 checkpointer:
   _component_: torchtune.training.FullModelHFCheckpointer
@@ -66,8 +66,8 @@ checkpointer:
   checkpoint_files:
     filename_format: model-{}-of-{}.safetensors
     # TODO: Change for Llama 3.3 70B
-    # max_filename: "00030"
-    max_filename: "00002"
+    max_filename: "00030"
+    # max_filename: "00002"
   recipe_checkpoint: null
   output_dir: ${output_dir}
   model_type: LLAMA3
