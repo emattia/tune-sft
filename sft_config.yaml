@@ -16,33 +16,38 @@
 # This config is only tested on an 8xA100 machine.
 #
 
-model_size: "70B"
-model_version: "3.3"
-# model_size: "3B"
-# model_version: "3.2"
+# model_size: "70B"
+# model_version: "3.3"
+model_size: "3B"
+model_version: "3.2"
 base_model_name: Llama-${model_version}-${model_size}-Instruct
 
-base_dir: /tmp/${base_model_name}
-output_dir: /tmp/torchtune/${base_model_name}/ # /tmp may be deleted by your system. Change it to your preference.
+# base_dir: /tmp/${base_model_name}
+# output_dir: /tmp/torchtune/${base_model_name}/ # /tmp may be deleted by your system. Change it to your preference.
+
+base_dir: metaflow-chkpt-train/model
+output_dir: metaflow-chkpt-train/out/${base_model_name}
 
 # Parallelism
-tensor_parallel_dim: 1
-tensor_parallel_plan:
-  _component_: torchtune.models.llama3.base_llama_tp_plan
+# tensor_parallel_dim: 1
+# tensor_parallel_plan:
+#   _component_: torchtune.models.llama3.base_llama_tp_plan
 
 # Tokenizer
 tokenizer:
   _component_: torchtune.models.llama3.llama3_tokenizer
-  path: /tmp/Llama-3.3-70B-Instruct/original/tokenizer.model
-  max_seq_len: null
+  path: ${base_dir}/original/tokenizer.model
+  max_seq_len: null # higher increases memory
 
 # Dataset
 dataset:
   _component_: torchtune.datasets.alpaca_dataset
   packed: False  # True increases speed
+  split: "train[:1%]"
 seed: null
 shuffle: True
 
+# Used by Metaflow for caching
 huggingface:
   repo_id: meta-llama/${base_model_name}
   allow_patterns:
@@ -52,14 +57,17 @@ huggingface:
 
 # Model Arguments
 model:
-  _component_: torchtune.models.llama3_3.llama3_3_70b
+  _component_: torchtune.models.llama3_2.llama3_2_3b
+  # _component_: torchtune.models.llama3_3.llama3_3_70b
 
 checkpointer:
   _component_: torchtune.training.FullModelHFCheckpointer
-  checkpoint_dir: /tmp/Llama-3.3-70B-Instruct/
+  checkpoint_dir: ${base_dir}
   checkpoint_files:
     filename_format: model-{}-of-{}.safetensors
-    max_filename: "00030"
+    # TODO: Change for Llama 3.3 70B
+    # max_filename: "00030"
+    max_filename: "00002"
   recipe_checkpoint: null
   output_dir: ${output_dir}
   model_type: LLAMA3
@@ -88,7 +96,7 @@ device: cuda
 # Memory management
 enable_activation_checkpointing: True  # True reduces memory
 enable_activation_offloading: False  # True reduces memory
-custom_sharded_layers: ['tok_embeddings', 'output']  # Layers to shard separately (useful for large vocab size models). Lower Memory, but lower speed.
+# custom_sharded_layers: ['tok_embeddings', 'output']  # Layers to shard separately (useful for large vocab size models). Lower Memory, but lower speed.
 fsdp_cpu_offload: True
 clip_grad_norm: null
 compile: False  # torch.compile the model + loss, True increases speed + decreases memory

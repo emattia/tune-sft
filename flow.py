@@ -18,6 +18,7 @@ from metaflow import (
 # NOTE: We will shortly release this as part of the default Outerbounds Metaflow distribution.
 from launcher import TorchTune
 
+N_GPU = 8 ### H100 8x 
 # k8s_config = dict(
 #     compute_pool="m5-2xl-ville",
 #     cpu=42,
@@ -118,7 +119,7 @@ class SFTPostTrainDemo(FlowSpec):
 
     training_config = IncludeFile(
         "config",
-        default="70B_sft_config.yaml", # TODO: change to desired config.yaml file.
+        default="sft_config.yaml", # TODO: change to desired config.yaml file.
         is_text=True,
     )
     prev_model_key = Parameter(
@@ -214,6 +215,27 @@ class SFTPostTrainDemo(FlowSpec):
                 "epoch_" + str(config["epochs"] - 1),
             ),
             storage_format="files",
+        )
+        self.next(self.inference)
+
+    @card
+    @model(
+        load=[("sft_model_ref", "metaflow-chkpt-infer/sft_model")], 
+        temp_dir_root="metaflow-chkpt-infer/loaded_models"
+    )
+    @inference_environment
+    # @kubernetes(**k8s_config, image="docker.io/eddieob/torchtune-vllm-inference")
+    @step
+    def inference(self):
+        from sft_batch_inference import run_eval
+
+        self.results = run_eval(
+            checkpoint_path=current.model.loaded["sft_model_ref"],
+            data_split="train[80%:85%]",
+            output_dir="results",
+            max_batches=100,
+            world_size=N_GPU,
+            seed=42
         )
         self.next(self.end)
 
