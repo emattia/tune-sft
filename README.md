@@ -9,7 +9,7 @@
 
 [Read more](https://pytorch.org/torchtune/stable/tutorials/first_finetune_tutorial.html#downloading-a-model).
 ```bash
-tune download meta-llama/Llama-3.3-70B-Instruct --output_dir $BASE_MODEL_DIR
+tune download meta-llama/Llama-3.3-70B-Instruct --output-dir $BASE_MODEL_DIR --hf-token $HF_TOKEN
 ```
 
 ### SFT
@@ -19,7 +19,7 @@ These files work together to drive the torchtune fine-tuning process.
 Here we run them independent of Metaflow to highlight the separation of concerns.
 
 ```bash
-tune run --nproc_per_node 8 full_sft_distributed.py --config 70B_sft_config.yaml 
+tune run --nproc_per_node 8 full_sft_distributed.py --config sft_config.yaml 
 ```
 
 The config file has a parameter called `output_dir`. 

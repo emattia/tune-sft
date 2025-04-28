@@ -22,16 +22,19 @@ model_version: "3.3"
 # model_version: "3.2"
 base_model_name: Llama-${model_version}-${model_size}-Instruct
 
-# base_dir: /tmp/${base_model_name}
-# output_dir: /tmp/torchtune/${base_model_name}/ # /tmp may be deleted by your system. Change it to your preference.
+base_root: llama70b # NOTE: connected to how you download datasets. Metaflow flows ignore.
+base_dir: ${base_root}/${base_model_name}
+output_dir: ${base_root}/out/${base_model_name}/ 
 
-base_dir: metaflow-chkpt-train/model
-output_dir: metaflow-chkpt-train/out/${base_model_name}
+# base_dir: metaflow-chkpt-train/model
+# output_dir: metaflow-chkpt-train/out/${base_model_name}
 
 # Parallelism
 tensor_parallel_dim: 1
 tensor_parallel_plan:
   _component_: torchtune.models.llama3.base_llama_tp_plan
+data_parallel_shard_dim: -1 # -1 means to infer based on other parallel dims & world size
+data_parallel_replicate_dim: 1
 
 # Tokenizer
 tokenizer:
