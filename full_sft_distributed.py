@@ -149,8 +149,8 @@ class FullFinetuneRecipeDistributed(FTRecipeInterface):
             cfg.get("tensor_parallel_plan", None)
         )
         self.tensor_parallel_dim = cfg.get("tensor_parallel_dim", 1)
-        print(f'TP_DIM: {self.tensor_parallel_dim}')
-        print(f'TP_PLAN: {self.tensor_parallel_plan}')
+        # print(f'TP_DIM: {self.tensor_parallel_dim}')
+        # print(f'TP_PLAN: {self.tensor_parallel_plan}')
         if self.tensor_parallel_dim > 1 and self.tensor_parallel_plan is None:
             raise ValueError(
                 "Tensor Parallel plan needs to be provided when tensor parallel is enabled."

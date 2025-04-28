@@ -20,9 +20,10 @@ model_size: "70B"
 model_version: "3.3"
 # model_size: "3B"
 # model_version: "3.2"
-base_model_name: Llama-${model_version}-${model_size}-Instruct
+# base_model_name: Llama-${model_version}-${model_size}-Instruct
+base_model_name: Llama-${model_version}-${model_size}
 
-base_root: llama70b # NOTE: connected to how you download datasets. Metaflow flows ignore.
+base_root: models # NOTE: connected to how you download datasets. Metaflow flows ignore.
 base_dir: ${base_root}/${base_model_name}
 output_dir: ${base_root}/out/${base_model_name}/ 
 
@@ -30,7 +31,7 @@ output_dir: ${base_root}/out/${base_model_name}/
 # output_dir: metaflow-chkpt-train/out/${base_model_name}
 
 # Parallelism
-tensor_parallel_dim: 1
+tensor_parallel_dim: 8
 tensor_parallel_plan:
   _component_: torchtune.models.llama3.base_llama_tp_plan
 data_parallel_shard_dim: -1 # -1 means to infer based on other parallel dims & world size
@@ -45,8 +46,8 @@ tokenizer:
 # Dataset
 dataset:
   _component_: torchtune.datasets.alpaca_dataset
-  packed: False  # True increases speed
-  split: "train[:1%]"
+  packed: False  # True increases speed, requires max_seq_len to be set
+  # split: "train[:1%]"
 seed: null
 shuffle: True
 
@@ -77,7 +78,7 @@ checkpointer:
 resume_from_checkpoint: False
 
 # Fine-tuning arguments
-batch_size: 2
+batch_size: 1
 epochs: 1
 
 optimizer:
@@ -97,10 +98,10 @@ gradient_accumulation_steps: 1  # Use to increase effective batch size
 device: cuda
 
 # Memory management
-enable_activation_checkpointing: True  # True reduces memory
+enable_activation_checkpointing: False  # True reduces memory
 enable_activation_offloading: False  # True reduces memory
 # custom_sharded_layers: ['tok_embeddings', 'output']  # Layers to shard separately (useful for large vocab size models). Lower Memory, but lower speed.
-fsdp_cpu_offload: True
+fsdp_cpu_offload: False
 clip_grad_norm: null
 compile: False  # torch.compile the model + loss, True increases speed + decreases memory
 optimizer_in_bwd: False  # True saves memory. Requires gradient_accumulation_steps=1
